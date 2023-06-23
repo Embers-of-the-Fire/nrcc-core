@@ -70,10 +70,11 @@ jobs:
           name: cross-apple-darwin
           path: /usr/local/bin/
 
-      - run: chmod +x /usr/local/bin/cross
-      - run: chmod +x ci/set_rust_version.bash
-      - run: chmod +x ci/build.bash
-      - run: chmod +x ci/test.bash
+      - run: |
+        chmod +x /tmp/cross
+        chmod +x ci/set_rust_version.bash
+        chmod +x ci/build.bash
+        chmod +x ci/test.bash
 
       - run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
       - run: ci/build.bash cross ${{ matrix.target }}
@@ -103,10 +104,11 @@ jobs:
           name: cross-linux-musl
           path: /tmp/
 
-      - run: chmod +x /tmp/cross
-      - run: chmod +x ci/set_rust_version.bash
-      - run: chmod +x ci/build.bash
-      - run: chmod +x ci/test.bash
+      - run: |
+        chmod +x /tmp/cross
+        chmod +x ci/set_rust_version.bash
+        chmod +x ci/build.bash
+        chmod +x ci/test.bash
 
       - run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
       - run: ci/build.bash /tmp/cross ${{ matrix.target }}

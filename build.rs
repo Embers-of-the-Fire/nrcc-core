@@ -10,11 +10,6 @@ use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
 
 fn main() -> anyhow::Result<()> {
-    println!("cargo:rerun-if-changed=templates/language_syntax.tera.rs");
-    println!("cargo:rerun-if-changed=templates/language_type.tera.rs");
-    println!("cargo:rerun-if-changed=templates/tests.tera.rs");
-    println!("cargo:rerun-if-changed=languages.yaml");
-    println!("cargo:rerun-if-changed=tests/test_config.yaml");
     generate_language()?;
     generate_tests()?;
     Ok(())
@@ -22,11 +17,14 @@ fn main() -> anyhow::Result<()> {
 
 fn generate_tests() -> anyhow::Result<()> {
     let out_dir = env::var("OUT_DIR")?;
-    let tests: BTreeMap<String, TestLang> =
-        serde_yaml::from_reader(File::open("./tests/test_config.yaml")?)?;
+    let tests: BTreeMap<String, TestLang> = serde_yaml::from_reader(
+        File::open("./tests/test_config.yaml").expect("Error loading test config"),
+    )
+    .expect("Error loading test config");
     let template = {
         let mut t = Tera::default();
-        t.add_template_file("./templates/tests.tera.rs", Some("tests"))?;
+        t.add_template_file("./templates/tests.tera.rs", Some("tests"))
+            .expect("Error loading test template");
         t
     };
 
@@ -49,21 +47,24 @@ fn generate_tests() -> anyhow::Result<()> {
                 ident: k,
                 name: d.name,
                 file: d.file,
-                predict: d.stats.ser(0)
+                predict: d.stats.ser(0),
             })
         }
         v
     };
 
-    let context = Context::from_serialize(TestContext {
-        languages: context
-    })?;
+    let context = Context::from_serialize(TestContext { languages: context })?;
 
-    let result = template.render("tests", &context)?;
+    let result = template
+        .render("tests", &context)
+        .expect("Error rendering test config");
 
     let output_path = Path::new(&out_dir).join("tests_tera.rs");
-    fs::write(output_path.clone(), result)?;
-    Command::new("rustfmt").args([output_path.to_str().unwrap()]).spawn()?;
+    fs::write(output_path.clone(), result).expect("Error writing test config");
+    Command::new("rustfmt")
+        .args([output_path.to_str().unwrap()])
+        .spawn()
+        .expect("Error formatting test config");
 
     Ok(())
 }
@@ -110,7 +111,16 @@ impl TestData {
             self.comment.normal,
             self.comment.doc_quote,
             level,
-            self.sub_language.iter().map(|(k, v)| format!("m{}.insert(LanguageType::{}, {});", level, k, v.ser(level + 1))).collect::<Vec<_>>().join(""),
+            self.sub_language
+                .iter()
+                .map(|(k, v)| format!(
+                    "m{}.insert(LanguageType::{}, {});",
+                    level,
+                    k,
+                    v.ser(level + 1)
+                ))
+                .collect::<Vec<_>>()
+                .join(""),
             level
         )
     }
@@ -124,12 +134,15 @@ struct TestCommentData {
 }
 
 fn generate_language() -> anyhow::Result<()> {
-    let out_dir = env::var("OUT_DIR")?;
-    let lang: BTreeMap<String, LanguageDefinition> =
-        serde_yaml::from_reader(File::open("./languages.yaml")?)?;
+    let out_dir = env::var("OUT_DIR").expect("Error loading output directory");
+    let lang: BTreeMap<String, LanguageDefinition> = serde_yaml::from_reader(
+        File::open("./languages.yaml").expect("Error loading languages config"),
+    )
+    .expect("Error loading languages config");
     let template = {
         let mut t = Tera::default();
-        t.add_template_file("./templates/language_type.tera.rs", Some("lang_type"))?;
+        t.add_template_file("./templates/language_type.tera.rs", Some("lang_type"))
+            .expect("Error loading languages template");
         t
     };
 
@@ -162,23 +175,32 @@ fn generate_language() -> anyhow::Result<()> {
         v
     };
 
-    let context = Context::from_serialize(LangContext { languages: context })?;
-    let result = template.render("lang_type", &context)?;
+    let context = Context::from_serialize(LangContext { languages: context })
+        .expect("Error loading languages context");
+    let result = template
+        .render("lang_type", &context)
+        .expect("Error rendering languages template");
 
     let output_path = Path::new(&out_dir).join("language_syntax_tera.rs");
-    fs::write(output_path.clone(), result)?;
-    Command::new("rustfmt").args([output_path.to_str().unwrap()]).spawn()?;
+    fs::write(output_path.clone(), result).expect("Error writing languages config");
+    Command::new("rustfmt")
+        .args([output_path.to_str().unwrap()])
+        .spawn()
+        .expect("Error formatting languages config");
     Ok(())
 }
 
 fn generate_syntax(syntax: LanguageSyntax) -> anyhow::Result<String> {
     let template = {
         let mut t = Tera::default();
-        t.add_template_file("./templates/language_syntax.tera.rs", Some("syntax"))?;
+        t.add_template_file("./templates/language_syntax.tera.rs", Some("syntax"))
+            .expect("Error loading languages syntax template");
         t
     };
-    let context = Context::from_serialize(syntax)?;
-    let result = template.render("syntax", &context)?;
+    let context = Context::from_serialize(syntax).expect("Error loading languages syntax context");
+    let result = template
+        .render("syntax", &context)
+        .expect("Error rendering languages syntax template");
     Ok(result)
 }
 
