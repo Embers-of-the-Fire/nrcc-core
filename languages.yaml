@@ -1,0 +1,17 @@
+Rust:
+  name: Rust
+  alias: [Rustlang, rust-lang, rust]
+  syntax:
+    # line_prefix: <<string>>
+    ignore_prefix_space: true
+    block: [["{", "}"]]
+    comment:
+      multi: [["/*", "*/"]]
+      single: ["//"]
+      doc: ["///", "//!"]
+      # doc_multi: [[<<string>>, <<string>>], ]
+    quote:
+      normal: [['\"', '\"']]
+      literal: [['r\"', '\"'], ['r#\"', '\"#'], ['r##\"', '\"##'], ['r###\"', '\"###']]
+      # doc: [[<<string>>, <<string>>], ]
+    # sub_language: [[<<string>>, <<string>>, <<string|lang name>>], ]

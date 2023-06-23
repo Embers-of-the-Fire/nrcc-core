@@ -1,0 +1,12 @@
+Rust:
+  file: ./tests/source/rust.rs
+  name: rust
+  stats:
+    code: 4
+    blank: 1
+    all: 7
+    comment:
+      doc: 1
+      normal: 2
+      doc_quote: 0
+    sub_language: {}
