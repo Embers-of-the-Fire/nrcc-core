@@ -71,10 +71,10 @@ jobs:
           path: /usr/local/bin/
 
       - run: |
-        chmod +x /tmp/cross
-        chmod +x ci/set_rust_version.bash
-        chmod +x ci/build.bash
-        chmod +x ci/test.bash
+          chmod +x /tmp/cross
+          chmod +x ci/set_rust_version.bash
+          chmod +x ci/build.bash
+          chmod +x ci/test.bash
 
       - run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
       - run: ci/build.bash cross ${{ matrix.target }}
@@ -105,10 +105,10 @@ jobs:
           path: /tmp/
 
       - run: |
-        chmod +x /tmp/cross
-        chmod +x ci/set_rust_version.bash
-        chmod +x ci/build.bash
-        chmod +x ci/test.bash
+          chmod +x /tmp/cross
+          chmod +x ci/set_rust_version.bash
+          chmod +x ci/build.bash
+          chmod +x ci/test.bash
 
       - run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
       - run: ci/build.bash /tmp/cross ${{ matrix.target }}
