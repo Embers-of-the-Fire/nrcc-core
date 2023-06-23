@@ -71,7 +71,7 @@ jobs:
           path: /usr/local/bin/
 
       - run: |
-          chmod +x /tmp/cross
+          chmod +x /usr/local/bin/cross
           chmod +x ci/set_rust_version.bash
           chmod +x ci/build.bash
           chmod +x ci/test.bash
