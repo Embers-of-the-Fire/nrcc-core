@@ -1,12 +1,16 @@
+#![allow(unused_assignments)]
+
 mod comment;
 mod string;
 mod sublang;
 
+use std::collections::HashMap;
+
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{anychar, line_ending, space1},
-    combinator::{eof, map_res, opt, peek},
+    character::complete::{anychar, space0},
+    combinator::{eof, map_res, peek},
     multi::many_till,
     sequence::tuple,
     IResult,
@@ -15,9 +19,16 @@ use nom::{
 use crate::{
     error::CoreError,
     language::{LanguageSyntax, LanguageType, SyntaxType},
+    parser::NomError,
 };
 
-use super::{tag_all, ParseResult, ParseState};
+use self::{
+    comment::multi_comment,
+    string::{litral_string, normal_string},
+    sublang::split_sublang_part,
+};
+
+use super::{tag_all, ParseResult};
 
 #[derive(Debug, Clone)]
 pub struct CoreParser {
@@ -32,256 +43,312 @@ impl CoreParser {
             syntax: lang.get_language_syntax(),
         }
     }
+
     pub fn init_content(&mut self, content: &str) {
         self.content = content.to_string();
     }
 
+    pub fn split_lines(&self) -> impl Iterator<Item = &str> {
+        self.content.split_terminator('\n').map(|line| {
+            let Some(line) = line.strip_suffix('\r') else { return line };
+            let Some(line) = line.strip_suffix('\n') else { return line };
+            line
+        })
+    }
+
     pub fn parse(&self) -> Result<ParseResult, CoreError> {
+        Self::parse_lines(self.split_lines(), &self.syntax)
+    }
+
+    pub fn parse_lines<'a>(
+        lines: impl Iterator<Item = &'a str>,
+        syntax: &LanguageSyntax,
+    ) -> Result<ParseResult, CoreError> {
         let mut result = ParseResult::default();
-        let mut input = self.content.clone();
-        let mut is_newline = true;
-        #[allow(unused_assignments)]
-        let mut prev_state = ParseState::Code;
-        let mut prev_syntax = SyntaxType::Blank;
+        let mut lines = lines;
+        let mut trailing_line: Option<&str> = None;
+        let mut prev_is_code = false;
         loop {
-            let (state, syntax, newline) = if let Ok((rest, (state, use_all_line))) =
-                Self::parse_as_blank(&self.syntax, is_newline, input.as_str())
-            {
-                input = rest.to_string();
-                if is_newline && use_all_line {
-                    result.blank += 1;
-                    (state, SyntaxType::Blank, true)
-                } else if !is_newline && use_all_line {
-                    match prev_syntax {
-                        SyntaxType::Blank => result.blank += 1,
-                        SyntaxType::Code => result.code += 1,
-                        SyntaxType::Sublang
-                        | SyntaxType::DocQuote
-                        | SyntaxType::DocComment
-                        | SyntaxType::NormalComment => {}
-                    }
-                    (state, SyntaxType::Blank, true)
-                } else if !is_newline && !use_all_line {
-                    (state, SyntaxType::Blank, false)
+            let (line, mut is_newline) = if let Some(t) = trailing_line {
+                trailing_line = None;
+                if t.is_empty() {
+                    prev_is_code = false;
+                    continue;
+                }
+                (t, false)
+            } else if let Some(t) = lines.next() {
+                result.all += 1;
+                prev_is_code = false;
+                (t, true)
+            } else {
+                break;
+            };
+
+            let line = if is_newline {
+                if let Some(pf) = syntax.line_prefix {
+                    let (input, _) = tag::<_, _, NomError>(pf)(line)?;
+                    input
                 } else {
-                    (state, prev_syntax, false)
+                    line
                 }
             } else {
-                let ipt = if is_newline {
-                    if let Some(pf) = self.syntax.line_prefix {
-                        let (ipt, _) = tag::<_, _, nom::error::Error<&str>>(pf)(input.as_str())
-                            .map_err(|e| CoreError::SyntaxError(e.to_string()))?;
-                        ipt.to_string()
-                    } else {
-                        input
-                    }
-                } else {
-                    input
-                };
-                input = ipt;
-
-                if let Ok((rest, (state, lang_type, iresult))) =
-                    Self::parse_as_sublang(&self.syntax, input.as_str())
-                {
-                    input = rest.to_string();
-                    result.join((lang_type, iresult));
-                    result.all -= 1;
-                    (state, SyntaxType::Sublang, false)
-                } else if let Ok((rest, (state, line, syntax, newline))) =
-                    Self::parse_as_comment(&self.syntax, input.as_str())
-                {
-                    match syntax {
-                        SyntaxType::DocComment => {
-                            result.comment.doc += line;
-                            result.all += line - 1;
-                        }
-                        SyntaxType::NormalComment => {
-                            result.comment.normal += line;
-                            result.all += line - 1;
-                        }
-                        _ => unreachable!(),
-                    }
-                    input = rest.to_string();
-                    (state, syntax, newline)
-                } else if let Ok((rest, (state, line, syntax))) =
-                    Self::parse_as_string(&self.syntax, input.as_str())
-                {
-                    match syntax {
-                        SyntaxType::Code => {
-                            result.code += line - 1;
-                            result.all += line - 1;
-                        }
-                        SyntaxType::DocQuote => {
-                            result.comment.doc_quote += line;
-                            result.all += line - 1;
-                        }
-                        _ => panic!(),
-                    }
-                    input = rest.to_string();
-                    (state, syntax, false)
-                } else if let Ok((rest, (state, newline))) =
-                    Self::parse_as_code(&self.syntax, input.as_str())
-                {
-                    if is_newline {
-                        result.code += 1;
-                    } else {
-                        match prev_state {
-                            ParseState::Code => {}
-                            ParseState::Blank => result.code += 1,
-                            _ => result.code += 1,
-                        }
-                    }
-                    input = rest.to_string();
-                    (state, SyntaxType::Code, newline)
-                } else {
-                    dbg!("unexpected");
-                    (ParseState::Eoi, prev_syntax, false)
-                }
+                line
             };
-            prev_state = state;
-            prev_syntax = syntax;
-            is_newline = newline;
-            if is_newline {
-                result.all += 1;
+
+            if line.is_empty() || tuple((space0::<_, NomError>, eof))(line).is_ok() {
+                if !prev_is_code && is_newline {
+                    result.blank += 1;
+                }
+            } else {
+                let parsed: IResult<&str, (Vec<char>, SyntaxType)> = many_till(
+                    anychar,
+                    peek(alt((
+                        map_res(tag_all(syntax.sublang_pairs, |p| p.0.left), |_| {
+                            Ok::<_, NomError>(SyntaxType::SubLanguage)
+                        }),
+                        map_res(tag_all(syntax.doc_comment_pairs, |p| p.left), |_| {
+                            Ok::<_, NomError>(SyntaxType::DocMultiComment)
+                        }),
+                        map_res(tag_all(syntax.comment_pairs, |p| p.left), |_| {
+                            Ok::<_, NomError>(SyntaxType::MultiComment)
+                        }),
+                        map_res(tag_all(syntax.literal_quote_pairs, |p| p.left), |_| {
+                            Ok::<_, NomError>(SyntaxType::LitString)
+                        }),
+                        map_res(tag_all(syntax.doc_quote_pairs, |p| p.left), |_| {
+                            Ok::<_, NomError>(SyntaxType::DocString)
+                        }),
+                        map_res(tag_all(syntax.quote_pairs, |p| p.left), |_| {
+                            Ok::<_, NomError>(SyntaxType::String)
+                        }),
+                        map_res(tag_all(syntax.doc_comment, |p| *p), |_| {
+                            Ok::<_, NomError>(SyntaxType::DocComment)
+                        }),
+                        map_res(tag_all(syntax.simple_comment, |p| *p), |_| {
+                            Ok::<_, NomError>(SyntaxType::SimpleComment)
+                        }),
+                    ))),
+                )(line);
+                if let Ok((rest, (chars, syntax_type))) = parsed {
+                    if !prev_is_code
+                        && !matches!(
+                            syntax_type,
+                            SyntaxType::DocString
+                                | SyntaxType::LitString
+                                | SyntaxType::String
+                                | SyntaxType::Code
+                        )
+                        && !chars.is_empty()
+                        && !space0::<_, NomError>(chars.into_iter().collect::<String>().as_str())?
+                            .0
+                            .is_empty()
+                    {
+                        prev_is_code = true;
+                        is_newline = false;
+                        result.code += 1;
+                    }
+                    match syntax_type {
+                        SyntaxType::SubLanguage => {
+                            let (rest, (pair, lang_type)) =
+                                tag_all(syntax.sublang_pairs, |p| p.0.left)(rest)?;
+                            let (trailing_s, parsed) =
+                                split_sublang_part(pair, lang_type, rest, &mut lines)?;
+
+                            trailing_line = Some(trailing_s);
+                            result.join((*lang_type, parsed));
+
+                            if !is_newline {
+                                result.all -= 1;
+                            }
+
+                            prev_is_code = false;
+                        }
+                        SyntaxType::DocComment => {
+                            trailing_line = None;
+                            result.comment.doc += 1;
+                        }
+                        SyntaxType::SimpleComment => {
+                            trailing_line = None;
+                            result.comment.normal += 1;
+                        }
+                        SyntaxType::DocMultiComment => {
+                            let (rest, pair) = tag_all(syntax.doc_comment_pairs, |p| p.left)(rest)?;
+                            let mut leading_map: HashMap<&str, usize> = HashMap::new();
+                            leading_map.insert(pair.left, 1);
+                            let mut trailing_map: HashMap<&str, usize> = HashMap::new();
+                            result.comment.doc += 1;
+                            if let Some(trailing) =
+                                multi_comment(&mut leading_map, &mut trailing_map, syntax, rest)
+                            {
+                                trailing_line = Some(trailing)
+                            } else {
+                                'doc_comment: loop {
+                                    if let Some(comment_line) = lines.next() {
+                                        result.all += 1;
+                                        result.comment.doc += 1;
+                                        if let Some(trailing) = multi_comment(
+                                            &mut leading_map,
+                                            &mut trailing_map,
+                                            syntax,
+                                            comment_line,
+                                        ) {
+                                            trailing_line = Some(trailing);
+                                            break 'doc_comment;
+                                        } else {
+                                            continue 'doc_comment;
+                                        }
+                                    } else {
+                                        return Err(CoreError::SyntaxError(
+                                            "No Comment Ending found.".to_string(),
+                                        ));
+                                    }
+                                }
+                            }
+
+                            prev_is_code = false;
+                        }
+                        SyntaxType::MultiComment => {
+                            let (rest, pair) = tag_all(syntax.comment_pairs, |p| p.left)(rest)?;
+
+                            let mut leading_map: HashMap<&str, usize> = HashMap::new();
+                            leading_map.insert(pair.left, 1);
+                            let mut trailing_map: HashMap<&str, usize> = HashMap::new();
+                            result.comment.normal += 1;
+                            if let Some(trailing) =
+                                multi_comment(&mut leading_map, &mut trailing_map, syntax, rest)
+                            {
+                                trailing_line = Some(trailing)
+                            } else {
+                                'normal_comment: loop {
+                                    if let Some(comment_line) = lines.next() {
+                                        result.all += 1;
+                                        result.comment.normal += 1;
+                                        if let Some(trailing) = multi_comment(
+                                            &mut leading_map,
+                                            &mut trailing_map,
+                                            syntax,
+                                            comment_line,
+                                        ) {
+                                            trailing_line = Some(trailing);
+                                            break 'normal_comment;
+                                        } else {
+                                            continue 'normal_comment;
+                                        }
+                                    } else {
+                                        return Err(CoreError::SyntaxError(
+                                            "No Comment Ending found.".to_string(),
+                                        ));
+                                    }
+                                }
+                            }
+
+                            prev_is_code = false;
+                        }
+                        SyntaxType::DocString => {
+                            let (rest, pair) = tag_all(syntax.doc_quote_pairs, |p| p.left)(rest)?;
+
+                            if !prev_is_code {
+                                result.code += 1;
+                            }
+                            if let Some(trailing) = normal_string(rest, pair) {
+                                result.comment.doc_quote += 1;
+                                trailing_line = Some(trailing);
+                            } else {
+                                result.comment.doc_quote += 1;
+                                'quote: loop {
+                                    if let Some(comment_line) = lines.next() {
+                                        result.all += 1;
+                                        result.code += 1;
+                                        result.comment.doc_quote += 1;
+                                        if let Some(trailing) = normal_string(comment_line, pair) {
+                                            trailing_line = Some(trailing);
+                                            break 'quote;
+                                        } else {
+                                            continue 'quote;
+                                        }
+                                    } else {
+                                        return Err(CoreError::SyntaxError(
+                                            "No Normal Document Quote Ending found.".to_string(),
+                                        ));
+                                    }
+                                }
+                            }
+
+                            prev_is_code = true;
+                        }
+                        SyntaxType::LitString => {
+                            let (rest, pair) =
+                                tag_all(syntax.literal_quote_pairs, |p| p.left)(rest)?;
+
+                            if !prev_is_code {
+                                result.code += 1;
+                            }
+                            if let Some(trailing) = litral_string(rest, pair) {
+                                trailing_line = Some(trailing)
+                            } else {
+                                'lit_quote: loop {
+                                    if let Some(comment_line) = lines.next() {
+                                        result.all += 1;
+                                        result.code += 1;
+                                        if let Some(trailing) = litral_string(comment_line, pair) {
+                                            trailing_line = Some(trailing);
+                                            break 'lit_quote;
+                                        } else {
+                                            continue 'lit_quote;
+                                        }
+                                    } else {
+                                        return Err(CoreError::SyntaxError(
+                                            "No Literal Quote Ending found.".to_string(),
+                                        ));
+                                    }
+                                }
+                            }
+
+                            prev_is_code = true;
+                        }
+                        SyntaxType::String => {
+                            let (rest, pair) = tag_all(syntax.quote_pairs, |p| p.left)(rest)?;
+
+                            if !prev_is_code {
+                                result.code += 1;
+                            }
+                            if let Some(trailing) = normal_string(rest, pair) {
+                                trailing_line = Some(trailing)
+                            } else {
+                                'quote: loop {
+                                    if let Some(comment_line) = lines.next() {
+                                        result.all += 1;
+                                        result.code += 1;
+                                        if let Some(trailing) = normal_string(comment_line, pair) {
+                                            trailing_line = Some(trailing);
+                                            break 'quote;
+                                        } else {
+                                            continue 'quote;
+                                        }
+                                    } else {
+                                        return Err(CoreError::SyntaxError(
+                                            "No Normal Quote Ending found.".to_string(),
+                                        ));
+                                    }
+                                }
+                            }
+
+                            prev_is_code = true;
+                        }
+                        SyntaxType::Soi
+                        | SyntaxType::Blank
+                        | SyntaxType::Code
+                        | SyntaxType::Eoi => unreachable!(),
+                    }
+                } else if !prev_is_code {
+                    trailing_line = None;
+                    prev_is_code = false;
+                    result.code += 1;
+                }
             }
-            /*
-            dbg!((
-                input.clone(),
-                is_newline,
-                prev_state,
-                prev_syntax,
-                result.clone()
-            ));
-            */
-            if matches!(prev_state, ParseState::Eoi) {
-                break;
-            }
+
+            // dbg!((line, &result, is_newline, trailing_line));
         }
         Ok(result)
-    }
-
-    /// 布尔值表示是否解决了尾换行。如果没有解决，实际物理行数为返回值-1
-    pub fn parse_as_string<'a>(
-        syntax: &LanguageSyntax,
-        input: &'a str,
-    ) -> IResult<&'a str, (ParseState, usize, SyntaxType)> {
-        let (input, res) = string::parse_string(syntax, input)?;
-        Ok((input, (res.0, res.1, res.2)))
-    }
-
-    /// 布尔值表示是否解决了尾换行。如果没有解决，实际行数为返回值+1
-    pub fn parse_as_comment<'a>(
-        syntax: &LanguageSyntax,
-        input: &'a str,
-    ) -> IResult<&'a str, (ParseState, usize, SyntaxType, bool)> {
-        let (input, res) = comment::parse_comment(syntax, input)?;
-        Ok((input, res))
-    }
-
-    pub fn parse_as_sublang<'a>(
-        syntax: &LanguageSyntax,
-        input: &'a str,
-    ) -> IResult<&'a str, (ParseState, LanguageType, ParseResult)> {
-        let (input, (tp, res)) = sublang::parse_sublang(syntax, input)?;
-        Ok((input, (ParseState::Code, tp, res)))
-    }
-
-    /// 布尔值为真代表使用了整行
-    pub fn parse_as_blank<'a>(
-        syntax: &LanguageSyntax,
-        is_newline: bool,
-        input: &'a str,
-    ) -> IResult<&'a str, (ParseState, bool)> {
-        let input = if is_newline {
-            if let Some(pf) = syntax.line_prefix {
-                let (ipt, _) = tag(pf)(input)?;
-                ipt
-            } else {
-                input
-            }
-        } else {
-            input
-        };
-        if let Ok((input, (_, r))) = tuple((
-            space1::<_, nom::error::Error<&str>>,
-            opt(alt((line_ending, eof))),
-        ))(input)
-        {
-            if let Some(d) = r {
-                Ok((
-                    input,
-                    (
-                        if d.is_empty() {
-                            ParseState::Eoi
-                        } else {
-                            ParseState::Blank
-                        },
-                        true,
-                    ),
-                ))
-            } else {
-                Ok((input, (ParseState::Blank, false)))
-            }
-        } else if let Ok((input, _)) = line_ending::<_, nom::error::Error<&str>>(input) {
-            Ok((input, (ParseState::Blank, true)))
-        } else if let Ok((input, _)) = eof::<_, nom::error::Error<&str>>(input) {
-            Ok((input, (ParseState::Eoi, true)))
-        } else {
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                nom::error::ErrorKind::Tag,
-            )))
-        }
-    }
-
-    /// 布尔值表示是否用完整行
-    pub fn parse_as_code<'a>(
-        syntax: &LanguageSyntax,
-        input: &'a str,
-    ) -> IResult<&'a str, (ParseState, bool)> {
-        let (input, (c, _)) = many_till(
-            anychar,
-            peek(alt((
-                eof,
-                line_ending,
-                map_res(tag_all(syntax.doc_quote_pairs, |p| p.left), |r| {
-                    Ok::<_, nom::error::Error<&str>>(r.left)
-                }),
-                map_res(tag_all(syntax.literal_quote_pairs, |p| p.left), |r| {
-                    Ok::<_, nom::error::Error<&str>>(r.left)
-                }),
-                map_res(tag_all(syntax.quote_pairs, |p| p.left), |r| {
-                    Ok::<_, nom::error::Error<&str>>(r.left)
-                }),
-                map_res(tag_all(syntax.comment_pairs, |p| p.left), |r| {
-                    Ok::<_, nom::error::Error<&str>>(r.left)
-                }),
-                map_res(tag_all(syntax.doc_comment_pairs, |p| p.left), |r| {
-                    Ok::<_, nom::error::Error<&str>>(r.left)
-                }),
-                map_res(tag_all(syntax.doc_comment, |p| p), |r| {
-                    Ok::<_, nom::error::Error<&str>>(*r)
-                }),
-                map_res(tag_all(syntax.simple_comment, |p| p), |r| {
-                    Ok::<_, nom::error::Error<&str>>(*r)
-                }),
-                map_res(tag_all(syntax.sublang_pairs, |p| p.0.left), |r| {
-                    Ok::<_, nom::error::Error<&str>>(r.0.left)
-                }),
-            ))),
-        )(input)?;
-
-        if c.is_empty() {
-            Err(nom::Err::Error(nom::error::Error::new(
-                input,
-                nom::error::ErrorKind::TakeUntil,
-            )))
-        } else if let Ok((rest, _)) = eof::<_, nom::error::Error<&str>>(input) {
-            Ok((rest, (ParseState::Eoi, true)))
-        } else if let Ok((rest, _)) = line_ending::<_, nom::error::Error<&str>>(input) {
-            Ok((rest, (ParseState::Code, true)))
-        } else {
-            Ok((input, (ParseState::Code, false)))
-        }
     }
 }

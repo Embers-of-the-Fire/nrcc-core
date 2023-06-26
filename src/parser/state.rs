@@ -1,7 +1,9 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParseState {
-    Code,
+    Soi,
+    Plain,
     Comment,
-    Blank,
+    String,
+    SubLanguage,
     Eoi,
 }

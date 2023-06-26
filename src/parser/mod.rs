@@ -7,3 +7,5 @@ pub use parse::*;
 pub use result::*;
 pub use state::*;
 pub use utils::*;
+
+pub type NomError<'a> = nom::error::Error<&'a str>;

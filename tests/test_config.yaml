@@ -2,11 +2,11 @@ Rust:
   file: ./tests/source/rust.rs
   name: rust
   stats:
-    code: 4
-    blank: 1
-    all: 7
+    code: 33
+    blank: 5
+    all: 48
     comment:
-      doc: 1
-      normal: 2
+      doc: 7
+      normal: 11
       doc_quote: 0
     sub_language: {}

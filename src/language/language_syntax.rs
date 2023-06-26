@@ -1,13 +1,19 @@
 use super::LanguageType;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SyntaxType {
-    Code,
-    DocComment,
-    NormalComment,
-    DocQuote,
+    Soi,
     Blank,
-    Sublang
+    Code,
+    DocString,
+    LitString,
+    String,
+    DocMultiComment,
+    MultiComment,
+    DocComment,
+    SimpleComment,
+    SubLanguage,
+    Eoi,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

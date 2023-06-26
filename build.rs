@@ -3,7 +3,6 @@ use std::{
     env,
     fs::{self, File},
     path::Path,
-    process::Command,
 };
 
 use serde::{Deserialize, Serialize};
@@ -11,7 +10,9 @@ use tera::{Context, Tera};
 
 fn main() -> anyhow::Result<()> {
     generate_language()?;
-    generate_tests()?;
+    if Path::new("./tests/").exists() {
+        generate_tests()?;
+    }
     Ok(())
 }
 
@@ -60,11 +61,7 @@ fn generate_tests() -> anyhow::Result<()> {
         .expect("Error rendering test config");
 
     let output_path = Path::new(&out_dir).join("tests_tera.rs");
-    fs::write(output_path.clone(), result).expect("Error writing test config");
-    Command::new("rustfmt")
-        .args([output_path.to_str().unwrap()])
-        .spawn()
-        .expect("Error formatting test config");
+    fs::write(output_path, result).expect("Error writing test config");
 
     Ok(())
 }
@@ -182,11 +179,7 @@ fn generate_language() -> anyhow::Result<()> {
         .expect("Error rendering languages template");
 
     let output_path = Path::new(&out_dir).join("language_syntax_tera.rs");
-    fs::write(output_path.clone(), result).expect("Error writing languages config");
-    Command::new("rustfmt")
-        .args([output_path.to_str().unwrap()])
-        .spawn()
-        .expect("Error formatting languages config");
+    fs::write(output_path, result).expect("Error writing languages config");
     Ok(())
 }
 
