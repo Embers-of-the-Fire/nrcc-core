@@ -16,8 +16,8 @@ jobs:
           fetch-depth: 0
       - name: Install required dependencies
         run: |
-          apt update
-          apt install -y sudo
+          sudo apt update
+          sudo apt install -y sudo
           sudo apt install -y git curl
           sudo apt install -y nodejs
       - name: Print versions
@@ -27,8 +27,8 @@ jobs:
           npm --version
       - name: Install commitlint
         run: |
-          npm install conventional-changelog-conventionalcommits
-          npm install commitlint@latest
+          sudo npm install conventional-changelog-conventionalcommits
+          sudo npm install commitlint@latest
           npx commitlint --version
 
       - name: Validate current commit (last commit) with commitlint
@@ -43,7 +43,7 @@ jobs:
   # `ci.yml` and `deploy.yml`. Make sure to update both places when making
   # changes.
   install-cross:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: XAMPPRocky/get-github-release@v1
         id: cross
@@ -156,9 +156,20 @@ jobs:
         # These targets have issues with being tested so they are disabled
         # by default. You can try disabling to see if they work for
         # your project.
+      - name: Test application (Recoverable)
+        run: ci/test.bash /tmp/cross ${{ matrix.target }}
+        if: |
+          (matrix.channel != 'nightly' || matrix.channel != 'beta') &&
+          !contains(matrix.target, 'android') &&
+          !contains(matrix.target, 'bsd') &&
+          !contains(matrix.target, 'solaris') &&
+          matrix.target != 'armv5te-unknown-linux-musleabi' &&
+          matrix.target != 'sparc64-unknown-linux-gnu'
+
       - name: Test application
         run: ci/test.bash /tmp/cross ${{ matrix.target }}
         if: |
+          matrix.channel == 'stable' &&
           !contains(matrix.target, 'android') &&
           !contains(matrix.target, 'bsd') &&
           !contains(matrix.target, 'solaris') &&
