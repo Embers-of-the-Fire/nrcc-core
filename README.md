@@ -45,6 +45,6 @@ It should also be noted that this parsing library ignores the last suffix line o
 
 ## License
 
-[MIT](./LICENCE-MIT)
+[MIT](./LICENSE-MIT)
 
-[Apache 2.0](./LICENCE-APACHE)
+[Apache 2.0](./LICENSE-APACHE)

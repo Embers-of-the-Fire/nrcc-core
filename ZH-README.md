@@ -43,6 +43,6 @@ sub_language: {}
 
 ## 许可协议
 
-[MIT](./LICENCE-MIT)
+[MIT](./LICENSE-MIT)
 
-[Apache 2.0](./LICENCE-APACHE)
+[Apache 2.0](./LICENSE-APACHE)
