@@ -9,8 +9,8 @@ include = [
     "build.rs",
     ".gitignore",
     "templates/**/*",
-    "LICENCE-MIT",
-    "LICENCE-APACHE",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
 ]
 readme = "README.md"
 authors = ["Embers-of-the-Fire<stellarishs@163.com>"]
