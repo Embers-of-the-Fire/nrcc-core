@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{LanguageSyntax, SyntaxPair};
+use super::{LanguageSyntax, SyntaxPair, LanguageFile, FileItem};
 
 include!(concat!(env!("OUT_DIR"), "/language_syntax_tera.rs"));
 

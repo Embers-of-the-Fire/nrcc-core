@@ -5,29 +5,37 @@ use std::{
     path::Path,
 };
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tera::{Context, Tera};
 
 fn main() -> anyhow::Result<()> {
-    generate_language()?;
+    let template = {
+        let mut t = Tera::default();
+        t.add_template_file("./templates/tests.tera.rs", Some("tests"))
+            .expect("Error loading test template");
+        t.add_template_file("./templates/language_type.tera.rs", Some("lang_type"))
+            .expect("Error loading languages template");
+        t.add_template_file("./templates/language_syntax.tera.rs", Some("syntax"))
+            .expect("Error loading languages syntax template");
+        t.add_template_file("./templates/language_file.tera.rs", Some("file"))
+            .expect("Error loading languages file definition template");
+        t
+    };
+
+    generate_language(&template)?;
     if Path::new("./tests/").exists() {
-        generate_tests()?;
+        generate_tests(&template)?;
     }
     Ok(())
 }
 
-fn generate_tests() -> anyhow::Result<()> {
+fn generate_tests(template: &Tera) -> anyhow::Result<()> {
     let out_dir = env::var("OUT_DIR")?;
     let tests: BTreeMap<String, TestLang> = serde_yaml::from_reader(
         File::open("./tests/test_config.yaml").expect("Error loading test config"),
     )
     .expect("Error loading test config");
-    let template = {
-        let mut t = Tera::default();
-        t.add_template_file("./templates/tests.tera.rs", Some("tests"))
-            .expect("Error loading test template");
-        t
-    };
 
     #[derive(Serialize)]
     struct Language {
@@ -35,6 +43,7 @@ fn generate_tests() -> anyhow::Result<()> {
         ident: String,
         file: String,
         predict: String,
+        detect: Vec<String>,
     }
     #[derive(Serialize)]
     struct TestContext {
@@ -49,6 +58,7 @@ fn generate_tests() -> anyhow::Result<()> {
                 name: d.name,
                 file: d.file,
                 predict: d.stats.ser(0),
+                detect: d.file_detect
             })
         }
         v
@@ -71,6 +81,8 @@ struct TestLang {
     name: String,
     file: String,
     stats: TestData,
+    #[serde(default = "empty_vec")]
+    file_detect: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -130,18 +142,11 @@ struct TestCommentData {
     doc_quote: usize,
 }
 
-fn generate_language() -> anyhow::Result<()> {
+fn generate_language(template: &Tera) -> anyhow::Result<()> {
     let out_dir = env::var("OUT_DIR").expect("Error loading output directory");
     let lang: BTreeMap<String, LanguageDefinition> = serde_yaml::from_reader(
         File::open("./languages.yaml").expect("Error loading languages config"),
-    )
-    .expect("Error loading languages config");
-    let template = {
-        let mut t = Tera::default();
-        t.add_template_file("./templates/language_type.tera.rs", Some("lang_type"))
-            .expect("Error loading languages template");
-        t
-    };
+    )?;
 
     #[derive(Serialize)]
     struct Lang {
@@ -149,6 +154,7 @@ fn generate_language() -> anyhow::Result<()> {
         name: String,
         aliases: Vec<String>,
         syntax: String,
+        file: String,
     }
     #[derive(Serialize)]
     struct LangContext {
@@ -166,7 +172,12 @@ fn generate_language() -> anyhow::Result<()> {
                     iv
                 },
                 name: def.name,
-                syntax: generate_syntax(def.syntax)?,
+                syntax: generate_syntax(template, def.syntax)?,
+                file: {
+                    def.file.extension.check_regex()?;
+                    def.file.file_name.check_regex()?;
+                    generate_file_definition(template, def.file)?
+                },
             })
         }
         v
@@ -183,13 +194,16 @@ fn generate_language() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn generate_syntax(syntax: LanguageSyntax) -> anyhow::Result<String> {
-    let template = {
-        let mut t = Tera::default();
-        t.add_template_file("./templates/language_syntax.tera.rs", Some("syntax"))
-            .expect("Error loading languages syntax template");
-        t
-    };
+fn generate_file_definition(template: &Tera, file: LanguageFile) -> anyhow::Result<String> {
+    let context =
+        Context::from_serialize(file).expect("Error loading languages file definition context");
+    let result = template
+        .render("file", &context)
+        .expect("Error rendering languages file definition template");
+    Ok(result)
+}
+
+fn generate_syntax(template: &Tera, syntax: LanguageSyntax) -> anyhow::Result<String> {
     let context = Context::from_serialize(syntax).expect("Error loading languages syntax context");
     let result = template
         .render("syntax", &context)
@@ -203,6 +217,35 @@ struct LanguageDefinition {
     #[serde(default = "empty_vec")]
     alias: Vec<String>,
     syntax: LanguageSyntax,
+    file: LanguageFile,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct LanguageFile {
+    extension: FileSetting,
+    file_name: FileSetting,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct FileSetting {
+    #[serde(default = "empty_vec")]
+    regex: Vec<String>,
+    #[serde(default = "empty_vec")]
+    case_insensitive: Vec<String>,
+    #[serde(default = "empty_vec")]
+    plain: Vec<String>,
+}
+
+impl FileSetting {
+    fn check_regex(&self) -> Result<(), regex::Error> {
+        for regex in self.regex.iter() {
+            match Regex::new(regex) {
+                Ok(_) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

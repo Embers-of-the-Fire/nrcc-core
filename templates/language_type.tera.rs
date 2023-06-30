@@ -13,6 +13,13 @@ impl LanguageType {
             {% endfor -%}
         }
     }
+    pub const fn all_language_syntax() -> &'static [(LanguageType, LanguageSyntax)] {
+        &[
+            {% for language in languages %}
+            (Self::{{language.ident}}, {{language.syntax}}),
+            {% endfor -%}
+        ]
+    }
 
     pub const fn get_name(&self) -> &'static str {
         match self {
@@ -20,5 +27,27 @@ impl LanguageType {
             Self::{{language.ident}} => "{{language.name}}",
             {% endfor -%}
         }
+    }
+    pub const fn all_name() -> &'static [(LanguageType, &'static str)] {
+        &[
+            {% for language in languages %}
+            (Self::{{language.ident}}, "{{language.name}}"),
+            {% endfor -%}
+        ]
+    }
+
+    pub const fn get_language_file(&self) -> LanguageFile {
+        match self {
+            {% for language in languages %}
+            Self::{{language.ident}} => {{language.file}},
+            {% endfor -%}
+        }
+    }
+    pub const fn all_language_file() -> &'static [(LanguageType, LanguageFile)] {
+        &[
+            {% for language in languages %}
+            (Self::{{language.ident}}, {{language.file}}),
+            {% endfor -%}
+        ]
     }
 }

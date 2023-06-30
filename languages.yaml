@@ -15,3 +15,12 @@ Rust:
       literal: [['r\"', '\"'], ['r#\"', '\"#'], ['r##\"', '\"##'], ['r###\"', '\"###']]
       # doc: [[<<string>>, <<string>>], ]
     # sub_language: [[<<string>>, <<string>>, <<string|lang name>>], ]
+  file:
+    extension:
+      plain: ["rs"]
+      # case_insensitive: [<<string>>, ]
+      # regex: [<<string|regex>>, ]
+    file_name:
+      # plain: [<<string>>, ]
+      # case_insensitive: [<<string>>, ]
+      # regex: [<<string|regex>>, ]
