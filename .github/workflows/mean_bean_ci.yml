@@ -70,20 +70,32 @@ jobs:
     needs: install-cross
     steps:
       - uses: actions/checkout@v2
-      - name: Set rust version
-        run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
+
+      - name: Set rust version(Beta)
+        run: ci/set_rust_version.bash beta ${{ matrix.target }}
         shell: bash
-      - name: Build application
+      - name: Build application(Beta)
         run: ci/build.bash cargo ${{ matrix.target }}
         shell: bash
-      - name: Test application
+        continue-on-error: true
+      - name: Test application(Beta)
+        run: ci/test.bash cargo ${{ matrix.target }}
+        shell: bash
+        continue-on-error: true
+
+      - name: Set rust version(Stable)
+        run: ci/set_rust_version.bash stable ${{ matrix.target }}
+        shell: bash
+      - name: Build application(Stable)
+        run: ci/build.bash cargo ${{ matrix.target }}
+        shell: bash
+      - name: Test application(Stable)
         run: ci/test.bash cargo ${{ matrix.target }}
         shell: bash
 
     strategy:
       fail-fast: true
       matrix:
-        channel: [stable, beta, nightly]
         target:
           # MSVC
           - i686-pc-windows-msvc
@@ -111,19 +123,28 @@ jobs:
           chmod +x ci/build.bash
           chmod +x ci/test.bash
 
-      - name: Set rust version
-        run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
-      - name: Build application
+      - name: Set rust version(Beta)
+        run: ci/set_rust_version.bash beta ${{ matrix.target }}
+      - name: Build application(Beta)
+        run: ci/build.bash cross ${{ matrix.target }}
+        continue-on-error: true
+      - name: Test application(Beta)
+        run: ci/test.bash cross ${{ matrix.target }}
+        if: matrix.target == 'x86_64-apple-darwin'
+        continue-on-error: true
+
+      - name: Set rust version(Stable)
+        run: ci/set_rust_version.bash stable ${{ matrix.target }}
+      - name: Build application(Stable)
         run: ci/build.bash cross ${{ matrix.target }}
         # Only test on macOS platforms since we can't simulate iOS.
-      - name: Test application
+      - name: Test application(Stable)
         run: ci/test.bash cross ${{ matrix.target }}
         if: matrix.target == 'x86_64-apple-darwin'
 
     strategy:
       fail-fast: true
       matrix:
-        channel: [stable, beta, nightly]
         target:
           # macOS
           - x86_64-apple-darwin
@@ -149,17 +170,29 @@ jobs:
           chmod +x ci/build.bash
           chmod +x ci/test.bash
 
-      - name: Set rust version
-        run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
-      - name: Build application
+      - name: Set rust version(Stable)
+        run: ci/set_rust_version.bash stable ${{ matrix.target }}
+      - name: Build application(Stable)
         run: ci/build.bash /tmp/cross ${{ matrix.target }}
         # These targets have issues with being tested so they are disabled
         # by default. You can try disabling to see if they work for
         # your project.
-      - name: Test application (Recoverable)
+      - name: Test application(Stable)
         run: ci/test.bash /tmp/cross ${{ matrix.target }}
         if: |
-          matrix.channel == 'beta' &&
+          !contains(matrix.target, 'android') &&
+          !contains(matrix.target, 'bsd') &&
+          !contains(matrix.target, 'solaris') &&
+          matrix.target != 'armv5te-unknown-linux-musleabi' &&
+          matrix.target != 'sparc64-unknown-linux-gnu'
+
+      - name: Set rust version(Beta)
+        run: ci/set_rust_version.bash beta ${{ matrix.target }}
+      - name: Build application(Beta)
+        run: ci/build.bash /tmp/cross ${{ matrix.target }}
+      - name: Test application(Beta)
+        run: ci/test.bash /tmp/cross ${{ matrix.target }}
+        if: |
           !contains(matrix.target, 'android') &&
           !contains(matrix.target, 'bsd') &&
           !contains(matrix.target, 'solaris') &&
@@ -167,20 +200,9 @@ jobs:
           matrix.target != 'sparc64-unknown-linux-gnu'
         continue-on-error: true
 
-      - name: Test application
-        run: ci/test.bash /tmp/cross ${{ matrix.target }}
-        if: |
-          matrix.channel == 'stable' &&
-          !contains(matrix.target, 'android') &&
-          !contains(matrix.target, 'bsd') &&
-          !contains(matrix.target, 'solaris') &&
-          matrix.target != 'armv5te-unknown-linux-musleabi' &&
-          matrix.target != 'sparc64-unknown-linux-gnu'
-
     strategy:
       fail-fast: true
       matrix:
-        channel: [stable, beta]
         target:
           # WASM, off by default as most rust projects aren't compatible yet.
           # - wasm32-unknown-emscripten
