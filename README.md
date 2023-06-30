@@ -10,7 +10,7 @@ If you are a user who wants to use this tool, please go to the **NRCC** reposito
 
 If you are a developer, you can use this repository to provide code counting functionality for your project.
 
-If you want to contribute to this repository, please check [CONTRIBUTING](./ZH-CONTRIBUTING.md) for more information.
+If you want to contribute to this repository, please check [CONTRIBUTING](./CONTRIBUTING.md) for more information.
 
 ## About Counting Rules
 
