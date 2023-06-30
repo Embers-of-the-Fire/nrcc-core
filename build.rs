@@ -26,6 +26,8 @@ fn main() -> anyhow::Result<()> {
     generate_language(&template)?;
     if Path::new("./tests/").exists() {
         generate_tests(&template)?;
+    } else {
+        fs::write(Path::new(&env::var("OUT_DIR")?).join("tests_tera.rs"), "")?;
     }
     Ok(())
 }
