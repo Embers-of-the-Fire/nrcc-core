@@ -10,3 +10,5 @@ Rust:
       normal: 11
       doc_quote: 0
     sub_language: {}
+  file_detect:
+    - regex.rs

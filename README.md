@@ -16,7 +16,7 @@ If you want to contribute to this repository, please check [CONTRIBUTING](./ZH-C
 
 Compared with other code counting tools (such as **Tokei**), this repository (currently only) provides code counting as blocks. Traditional counting algorithms (as optional replacements) are planned in the development.
 
-"Code counting as blocks" means that code blocks (including comment blocks) are not counted as independent physical lines, but as "blocks". Only blank lines are consistent with physical lines.
+"Code counting as blocks" means that code blocks (including comment blocks) are not counted as independent physical lines, but as "blocks". Only blank lines are plain with physical lines.
 
 For example, the following (Rust) code:
 

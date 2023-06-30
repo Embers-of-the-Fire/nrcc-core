@@ -67,6 +67,33 @@ MyLang: # 这里应该是语言的标识符
 
 > 对于统计数据的详细信息，参考项目的文档。
 
+### 配置一个新语言的文件类型
+
+在[languages.yaml](./languages.yaml)中你的语言的键后，添加如下内容：
+
+```yaml
+MyLang:
+  ...
+  file:
+    extension: # 必须包含这个键，可以值置空。表示文件扩展名检测。
+      plain: ["ml"] # 可选。完全匹配。
+      case_insensitive: ["mylang"] # 可选。忽略ASCII大小写的完全匹配（这里需要填写全小写文字）。
+      regex: ["*.ml"] # 可选。正则字符串匹配（从头匹配）
+    file_name: # 必须包含这个键，可以值置空。表示对于整个文件名的检测。
+      plain: ["ml"] # 同上
+      case_insensitive: ["mylang"] # 同上
+      regex: ["*.ml"] # 同上
+```
+
+随后，在[test_config.yaml](./tests/test_config.yaml)中为其添加测试：
+
+```yaml
+MyLang:
+  ...
+  file_detect: # 使用数组形式
+    - regex.ml
+```
+
 ## 参与解析器开发
 
 任何对于这个项目的 PR 都会受到感激，具体的 PR 提交建议参考 Github 的模板。

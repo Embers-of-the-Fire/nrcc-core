@@ -69,6 +69,33 @@ MyLang: # This should be the identifier of the language.
 
 > For detailed information on statistics data, refer to the project's documentation.
 
+### Configuration for a New Language File Type
+
+After the key for your language in [languages.yaml](./languages.yaml), add the following content:
+
+```yaml
+MyLang:
+  ...
+  file:
+    extension: # This key must be included, and its value can be empty. It represents file extension detection.
+      plain: ["ml"] # Optional. Exact match.
+      case_insensitive: ["mylang"] # Optional. Exact match with ASCII case-insensitive (please use lowercase letters here).
+      regex: ["*.ml"] # Optional. Regular expression match (from the beginning).
+    file_name: # This key must be included, and its value can be empty. It represents detection for the entire file name.
+      plain: ["ml"] # Same as above.
+      case_insensitive: ["mylang"] # Same as above.
+      regex: ["*.ml"] # Same as above
+```
+
+Next, add tests for it in [test_config.yaml](./tests/test_config.yaml):
+
+```yaml
+MyLang:
+  ...
+  file_detect: # Use an array format
+    - regex.ml
+```
+
 ## Contributing to the Parser Development
 
 Any PRs for this project will be appreciated. Please refer to the Github template for specific PR submission recommendations.
