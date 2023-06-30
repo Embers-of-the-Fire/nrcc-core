@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use nom::{
     branch::alt,
@@ -13,8 +13,8 @@ use crate::{
 };
 
 pub fn multi_comment<'a>(
-    leading_map: &mut HashMap<&'a str, usize>,
-    trailing_map: &mut HashMap<&'a str, usize>,
+    leading_map: &mut BTreeMap<&'a str, usize>,
+    trailing_map: &mut BTreeMap<&'a str, usize>,
     syntax: &LanguageSyntax,
     line: &'a str,
 ) -> Option<&'a str> {

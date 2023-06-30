@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::{Add, AddAssign}};
+use std::{collections::BTreeMap, ops::{Add, AddAssign}};
 
 use crate::language::LanguageType;
 
@@ -8,7 +8,7 @@ pub struct ParseResult {
     pub blank: usize,
     pub all: usize,
     pub comment: CommentResult,
-    pub sub_language: HashMap<LanguageType, ParseResult>,
+    pub sub_language: BTreeMap<LanguageType, ParseResult>,
 }
 
 impl ParseResult {
@@ -30,7 +30,7 @@ impl Add for ParseResult {
             all: self.all + rhs.all,
             comment: self.comment + rhs.comment,
             sub_language: {
-                let mut map: HashMap<LanguageType, ParseResult> = HashMap::new();
+                let mut map: BTreeMap<LanguageType, ParseResult> = BTreeMap::new();
                 for (k, v) in self.sub_language.iter() {
                     map.entry(*k).or_insert(v.clone());
                 }

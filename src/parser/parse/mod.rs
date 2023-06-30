@@ -4,7 +4,7 @@ mod comment;
 mod string;
 mod sublang;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use nom::{
     branch::alt,
@@ -173,9 +173,9 @@ impl CoreParser {
                         }
                         SyntaxType::DocMultiComment => {
                             let (rest, pair) = tag_all(syntax.doc_comment_pairs, |p| p.left)(rest)?;
-                            let mut leading_map: HashMap<&str, usize> = HashMap::new();
+                            let mut leading_map: BTreeMap<&str, usize> = BTreeMap::new();
                             leading_map.insert(pair.left, 1);
-                            let mut trailing_map: HashMap<&str, usize> = HashMap::new();
+                            let mut trailing_map: BTreeMap<&str, usize> = BTreeMap::new();
                             result.comment.doc += 1;
                             if let Some(trailing) =
                                 multi_comment(&mut leading_map, &mut trailing_map, syntax, rest)
@@ -210,9 +210,9 @@ impl CoreParser {
                         SyntaxType::MultiComment => {
                             let (rest, pair) = tag_all(syntax.comment_pairs, |p| p.left)(rest)?;
 
-                            let mut leading_map: HashMap<&str, usize> = HashMap::new();
+                            let mut leading_map: BTreeMap<&str, usize> = BTreeMap::new();
                             leading_map.insert(pair.left, 1);
-                            let mut trailing_map: HashMap<&str, usize> = HashMap::new();
+                            let mut trailing_map: BTreeMap<&str, usize> = BTreeMap::new();
                             result.comment.normal += 1;
                             if let Some(trailing) =
                                 multi_comment(&mut leading_map, &mut trailing_map, syntax, rest)
