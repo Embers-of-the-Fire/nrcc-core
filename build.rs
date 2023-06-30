@@ -110,7 +110,7 @@ impl TestData {
     }},
     sub_language: {{
         #[allow(unused_mut)]
-        let mut m{} = std::collections::HashMap::new();
+        let mut m{} = std::collections::BTreeMap::new();
         {}
         m{}
     }}

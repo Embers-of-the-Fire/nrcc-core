@@ -1,4 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
 pub enum LanguageType {
     {% for language in languages %}
     #[serde(rename="{{language.ident}}", {%- for alias in language.aliases %}alias="{{alias}}",{% endfor -%})] {{language.ident}},
